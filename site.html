@@ -1,0 +1,666 @@
+<section class="admin-page" id="adminPage" hidden>
+  <div class="admin-card" id="loginCard">
+    <h2>Área administrativa</h2>
+    <p>Entre para gerenciar os filtros do estúdio.</p>
+
+    <form id="loginForm">
+      <label for="adminUser">Usuário</label>
+      <input id="adminUser" type="text" required autocomplete="username">
+
+      <label for="adminPassword">Senha</label>
+      <input id="adminPassword" type="password" required autocomplete="current-password">
+
+      <p class="login-error" id="loginError" role="alert"></p>
+      <button class="button primary" type="submit">Entrar</button>
+    </form>
+  </div>
+
+  <div class="admin-card" id="dashboardCard" hidden>
+    <div class="admin-heading">
+      <div>
+        <h2>Painel de administração</h2>
+        <p>Adicione filtros personalizados ao editor.</p>
+      </div>
+      <button class="button" id="logoutButton">Sair</button>
+    </div>
+
+    <form id="filterForm">
+      <label for="filterName">Nome do filtro</label>
+      <input id="filterName" type="text" placeholder="Ex.: Dourado" required maxlength="18">
+
+      <label for="filterEffect">Efeito CSS do filtro</label>
+      <input id="filterEffect" type="text"
+             placeholder="sepia(30%) saturate(110%)" required>
+
+      <p class="admin-hint">
+        Exemplos: <code>sepia(30%)</code>, <code>grayscale(40%)</code>,
+        <code>saturate(130%)</code>, <code>hue-rotate(20deg)</code>.
+      </p>
+
+      <button class="button primary" type="submit">＋ Adicionar filtro</button>
+    </form>
+
+    <h3>Filtros adicionados</h3>
+    <ul id="customFilterList" class="custom-filter-list"></ul>
+
+    <button class="button back-button" id="backToEditor">Voltar ao editor</button>
+  </div>
+</section>
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rosa Retrô — Editor de Fotos</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --rosa: #c87983;
+      --rosa-escuro: #a95966;
+      --rosa-claro: #f4dfe0;
+      --creme: #fffaf4;
+      --texto: #49383b;
+      --texto-claro: #8f7779;
+      --borda: #ead9d4;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 8% 10%, #f9e9e6 0, transparent 32%),
+        radial-gradient(ellipse at 95% 85%, #f7e7e1 0, transparent 30%),
+        var(--creme);
+      color: var(--texto);
+      font-family: "DM Sans", sans-serif;
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .topbar {
+      width: min(1180px, 92%);
+      margin: 0 auto;
+      padding: 25px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--borda);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: var(--texto);
+      font-family: "Playfair Display", serif;
+      font-size: 23px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .logo-mark {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--rosa-claro);
+      color: var(--rosa-escuro);
+      font-size: 19px;
+    }
+
+    .top-note {
+      color: var(--texto-claro);
+      font-size: 13px;
+    }
+
+    main {
+      width: min(1180px, 92%);
+      margin: 0 auto;
+      padding: 58px 0 75px;
+    }
+
+    .intro {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    .eyebrow {
+      color: var(--rosa-escuro);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 12px 0 10px;
+      font-family: "Playfair Display", serif;
+      font-size: clamp(38px, 6vw, 61px);
+      font-weight: 500;
+      letter-spacing: -1.8px;
+    }
+
+    .intro p {
+      color: var(--texto-claro);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .editor {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.8fr);
+      overflow: hidden;
+      border: 1px solid var(--borda);
+      border-radius: 21px;
+      background: rgba(255, 255, 255, 0.79);
+      box-shadow: 0 22px 65px rgba(112, 70, 74, 0.09);
+    }
+
+    .preview-area {
+      padding: 26px;
+      background: #f7eeea;
+    }
+
+    .preview-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 17px;
+      color: var(--texto-claro);
+      font-size: 12px;
+    }
+
+    .live-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .live-label::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #8caa83;
+    }
+
+    .photo-frame {
+      position: relative;
+      display: grid;
+      min-height: 425px;
+      overflow: hidden;
+      place-items: center;
+      border: 9px solid white;
+      border-radius: 12px;
+      background: #ead2c7;
+      box-shadow: 0 8px 22px #6749431c;
+    }
+
+    #photo {
+      display: block;
+      width: 100%;
+      height: 425px;
+      object-fit: cover;
+      filter: sepia(22%) saturate(82%) contrast(94%) brightness(103%);
+      transition: filter 0.2s ease;
+    }
+
+    .photo-frame.empty #photo {
+      display: none;
+    }
+
+    .placeholder {
+      position: absolute;
+      display: flex;
+      max-width: 280px;
+      padding: 25px;
+      align-items: center;
+      flex-direction: column;
+      gap: 12px;
+      color: #795f5a;
+      text-align: center;
+    }
+
+    .photo-frame:not(.empty) .placeholder {
+      display: none;
+    }
+
+    .placeholder-icon {
+      display: grid;
+      width: 64px;
+      height: 64px;
+      place-items: center;
+      border: 1px solid #cfa9a0;
+      border-radius: 50%;
+      font-size: 27px;
+    }
+
+    .placeholder strong {
+      font-family: "Playfair Display", serif;
+      font-size: 20px;
+      font-weight: 500;
+    }
+
+    .placeholder span {
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .preview-bottom {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 15px;
+      color: var(--texto-claro);
+      font-size: 11px;
+    }
+
+    .controls {
+      padding: 27px 27px 24px;
+    }
+
+    .controls h2 {
+      font-family: "Playfair Display", serif;
+      font-size: 25px;
+      font-weight: 500;
+    }
+
+    .controls-subtitle {
+      margin-top: 5px;
+      color: var(--texto-claro);
+      font-size: 12px;
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 25px 0 12px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .section-title span:last-child {
+      color: var(--texto-claro);
+      font-size: 11px;
+      font-weight: 400;
+    }
+
+    .presets {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .preset {
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid var(--borda);
+      border-radius: 9px;
+      background: white;
+      color: var(--texto);
+      transition: 0.2s ease;
+    }
+
+    .preset:hover, .preset.active {
+      border-color: var(--rosa);
+      box-shadow: 0 0 0 2px #c8798325;
+      transform: translateY(-2px);
+    }
+
+    .preset-swatch {
+      display: block;
+      height: 50px;
+      background: linear-gradient(135deg, #ddbaa6, #f3d8c8 50%, #9d7770);
+    }
+
+    .preset:nth-child(2) .preset-swatch {
+      background: linear-gradient(135deg, #d8b8aa, #f4e0cf 48%, #b48779);
+      filter: sepia(45%);
+    }
+
+    .preset:nth-child(3) .preset-swatch {
+      background: linear-gradient(135deg, #e3b6b7, #f6d9dd 48%, #ad777e);
+    }
+
+    .preset:nth-child(4) .preset-swatch {
+      background: linear-gradient(135deg, #af9c83, #e4d2ae 48%, #887461);
+      filter: grayscale(25%);
+    }
+
+    .preset-name {
+      display: block;
+      padding: 7px 3px;
+      font-size: 10px;
+    }
+
+    .slider-row {
+      margin: 16px 0;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .slider-label output {
+      color: var(--texto-claro);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      appearance: none;
+      border-radius: 8px;
+      background: #ead9d4;
+      accent-color: var(--rosa);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      width: 14px;
+      height: 14px;
+      appearance: none;
+      border: 3px solid white;
+      border-radius: 50%;
+      background: var(--rosa);
+      box-shadow: 0 1px 5px #593b3c55;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1.35fr;
+      gap: 9px;
+      margin-top: 24px;
+    }
+
+    .button {
+      min-height: 43px;
+      padding: 10px 12px;
+      border: 1px solid var(--borda);
+      border-radius: 9px;
+      background: white;
+      color: var(--texto);
+      font-size: 12px;
+      font-weight: 600;
+      transition: 0.2s ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+    }
+
+    .button.primary {
+      border-color: var(--rosa);
+      background: var(--rosa);
+      color: white;
+    }
+
+    .button.primary:hover {
+      background: var(--rosa-escuro);
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    .hint {
+      margin-top: 14px;
+      color: var(--texto-claro);
+      font-size: 10px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    footer {
+      padding: 0 15px 28px;
+      color: var(--texto-claro);
+      font-family: "Playfair Display", serif;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (max-width: 760px) {
+      main {
+        padding-top: 40px;
+      }
+
+      .editor {
+        grid-template-columns: 1fr;
+      }
+
+      .photo-frame, #photo {
+        min-height: 320px;
+        height: 320px;
+      }
+
+      .top-note {
+        display: none;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .preview-area, .controls {
+        padding: 18px;
+      }
+
+      .presets {
+        gap: 5px;
+      }
+
+      .preset-name {
+        font-size: 9px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="topbar">
+    <a class="logo" href="#">
+      <span class="logo-mark">✿</span>
+      Rosa Retrô
+    </a>
+    <span class="top-note">Um toque nostálgico para suas memórias</span>
+  </header>
+
+  <main>
+    <section class="intro">
+      <span class="eyebrow">Seu cantinho criativo</span>
+      <h1>Memórias com um toque retrô</h1>
+      <p>Transforme suas fotos em lembranças cheias de charme e nostalgia.</p>
+    </section>
+
+    <section class="editor" aria-label="Editor de fotos">
+      <div class="preview-area">
+        <div class="preview-top">
+          <span>PRÉ-VISUALIZAÇÃO</span>
+          <span class="live-label">Edição ao vivo</span>
+        </div>
+
+        <div class="photo-frame empty" id="photoFrame">
+          <img id="photo" alt="Pré-visualização da foto editada">
+          <div class="placeholder">
+            <div class="placeholder-icon">✧</div>
+            <strong>Sua próxima lembrança</strong>
+            <span>Escolha uma foto para começar a criar algo especial.</span>
+          </div>
+        </div>
+
+        <div class="preview-bottom">
+          <span>✦ Feito para momentos especiais</span>
+          <span>Rosa Retrô Studio</span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <h2>Seu estúdio</h2>
+        <p class="controls-subtitle">Ajuste sua foto do jeitinho que você gosta.</p>
+
+        <div class="section-title">
+          <span>Filtros delicados</span>
+          <span>Escolha um estilo</span>
+        </div>
+
+        <div class="presets">
+          <button class="preset active" data-filter="original" aria-label="Filtro Original">
+            <span class="preset-swatch"></span>
+            <span class="preset-name">Original</span>
+          </button>
+          <button class="preset" data-filter="sepia" aria-label="Filtro Nostalgia">
+            <span class="preset-swatch"></span>
+            <span class="preset-name">Nostalgia</span>
+          </button>
+          <button class="preset" data-filter="rose" aria-label="Filtro Rosé">
+            <span class="preset-swatch"></span>
+            <span class="preset-name">Rosé</span>
+          </button>
+          <button class="preset" data-filter="soft" aria-label="Filtro Filme">
+            <span class="preset-swatch"></span>
+            <span class="preset-name">Filme</span>
+          </button>
+        </div>
+
+        <div class="section-title">
+          <span>Ajustes finos</span>
+          <span>Personalize</span>
+        </div>
+
+        <div class="slider-row">
+          <label class="slider-label" for="brightness">
+            <span>Brilho</span>
+            <output id="brightnessValue">100%</output>
+          </label>
+          <input id="brightness" type="range" min="50" max="150" value="100">
+        </div>
+
+        <div class="slider-row">
+          <label class="slider-label" for="contrast">
+            <span>Contraste</span>
+            <output id="contrastValue">100%</output>
+          </label>
+          <input id="contrast" type="range" min="50" max="150" value="100">
+        </div>
+
+        <div class="actions">
+          <button class="button" id="uploadButton">＋ Escolher foto</button>
+          <button class="button primary" id="downloadButton">♡ Baixar minha foto</button>
+          <input id="fileInput" type="file" accept="image/*">
+        </div>
+
+        <p class="hint">Sua criatividade merece um filtro bonito. A imagem é processada no seu navegador.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>Feito com carinho e um pouquinho de nostalgia ✿</footer>
+
+  <script>
+    const photo = document.getElementById("photo");
+    const photoFrame = document.getElementById("photoFrame");
+    const fileInput = document.getElementById("fileInput");
+    const uploadButton = document.getElementById("uploadButton");
+    const downloadButton = document.getElementById("downloadButton");
+    const brightness = document.getElementById("brightness");
+    const contrast = document.getElementById("contrast");
+    const brightnessValue = document.getElementById("brightnessValue");
+    const contrastValue = document.getElementById("contrastValue");
+
+    let imageUrl = null;
+    let selectedFilter = "original";
+
+    const filters = {
+      original: "",
+      sepia: "sepia(45%) saturate(85%) contrast(95%)",
+      rose: "sepia(15%) hue-rotate(315deg) saturate(115%)",
+      soft: "sepia(22%) saturate(75%) contrast(85%) brightness(108%)"
+    };
+
+    function updatePhoto() {
+      const brightnessAmount = Number(brightness.value);
+      const contrastAmount = Number(contrast.value);
+      const preset = filters[selectedFilter];
+
+      photo.style.filter =
+        `${preset} brightness(${brightnessAmount}%) contrast(${contrastAmount}%)`;
+
+      brightnessValue.textContent = `${brightnessAmount}%`;
+      contrastValue.textContent = `${contrastAmount}%`;
+    }
+
+    uploadButton.addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+      imageUrl = URL.createObjectURL(file);
+      photo.src = imageUrl;
+      photoFrame.classList.remove("empty");
+    });
+
+    document.querySelectorAll(".preset").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".preset").forEach((preset) => {
+          preset.classList.remove("active");
+        });
+
+        button.classList.add("active");
+        selectedFilter = button.dataset.filter;
+        updatePhoto();
+      });
+    });
+
+    brightness.addEventListener("input", updatePhoto);
+    contrast.addEventListener("input", updatePhoto);
+
+    downloadButton.addEventListener("click", () => {
+      if (!photo.src || photoFrame.classList.contains("empty")) {
+        fileInput.click();
+        return;
+      }
+
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+
+      canvas.width = photo.naturalWidth;
+      canvas.height = photo.naturalHeight;
+
+      const brightnessAmount = Number(brightness.value);
+      const contrastAmount = Number(contrast.value);
+
+      context.filter =
+        `${filters[selectedFilter]} brightness(${brightnessAmount}%) contrast(${contrastAmount}%)`;
+
+      context.drawImage(photo, 0, 0, canvas.width, canvas.height);
+
+      const link = document.createElement("a");
+      link.download = "minha-foto-rosa-retro.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+
+    updatePhoto();
+  </script>
+</body>
+</html>
+```
